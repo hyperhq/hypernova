@@ -197,8 +197,8 @@ class HyperDriver(driver.ComputeDriver):
 
     def list_instances(self, inspect=False):
         res = []
-        for container in self.docker.containers(all=True):
-            info = self.docker.inspect_container(container['id'])
+        for pod in self.hyper.pods(all=True):
+            info = self.hyper.inspect_pods(pod['id'])
             if not info:
                 continue
             if inspect:
@@ -210,8 +210,8 @@ class HyperDriver(driver.ComputeDriver):
     def attach_interface(self, instance, image_meta, vif):
         """Attach an interface to the container."""
         self.vif_driver.plug(instance, vif)
-        container_id = self._find_container_by_uuid(instance['uuid']).get('id')
-        self.vif_driver.attach(instance, vif, container_id)
+        pod_id = self.hyper.find_pod_by_uuid(instance['uuid']).get('id')
+        self.vif_driver.attach(instance, vif, pod_id)
 
     def detach_interface(self, instance, vif):
         """Detach an interface from the container."""
@@ -224,30 +224,15 @@ class HyperDriver(driver.ComputeDriver):
         self._start_firewall(instance, network_info)
 
     def _attach_vifs(self, instance, network_info):
-        """Plug VIFs into container."""
+        """Plug VIFs into pod."""
         if not network_info:
             return
-        container_id = self._get_container_id(instance)
-        if not container_id:
+        pod_id = self.hyper.find_pod_by_uuid(instance)
+        if not pod_id:
             return
-        netns_path = '/var/run/netns'
-        if not os.path.exists(netns_path):
-            utils.execute(
-                'mkdir', '-p', netns_path, run_as_root=True)
-        nspid = self._find_container_pid(container_id)
-        if not nspid:
-            msg = _('Cannot find any PID under container "{0}"')
-            raise RuntimeError(msg.format(container_id))
-        netns_path = os.path.join(netns_path, container_id)
-        utils.execute(
-            'ln', '-sf', '/proc/{0}/ns/net'.format(nspid),
-            '/var/run/netns/{0}'.format(container_id),
-            run_as_root=True)
-        utils.execute('ip', 'netns', 'exec', container_id, 'ip', 'link',
-                      'set', 'lo', 'up', run_as_root=True)
-
+        # todo: link/create ifaces
         for vif in network_info:
-            self.vif_driver.attach(instance, vif, container_id)
+            self.vif_driver.attach(instance, vif, pod_id)
 
     def unplug_vifs(self, instance, network_info):
         """Unplug VIFs from networks."""
@@ -258,40 +243,16 @@ class HyperDriver(driver.ComputeDriver):
     def _encode_utf8(self, value):
         return unicode(value).encode('utf-8')
 
-    def _find_container_by_uuid(self, uuid):
-        try:
-            name = "nova-" + uuid
-            containers = self.docker.containers(all=True,
-                                                filters={'name': name})
-            if containers:
-                # NOTE(dims): We expect only one item in the containers list
-                return self.docker.inspect_container(containers[0]['id'])
-        except errors.APIError as e:
-            if e.response.status_code != 404:
-                raise
-        return {}
-
-    def _get_container_id(self, instance):
-        return self._find_container_by_uuid(instance['uuid']).get('id')
-
     def get_info(self, instance):
-        container = self._find_container_by_uuid(instance['uuid'])
-        if not container:
+        pod = self.hyper.find_pod_by_uuid(instance['uuid'])
+        if not pod:
             raise exception.InstanceNotFound(instance_id=instance['name'])
-        running = container['State'].get('Running')
-        mem = container['Config'].get('Memory', 0)
+        running = pod['State'].get('Running')
+        mem = pod['Config'].get('Memory', 0)
 
-        # NOTE(ewindisch): cgroups/lxc defaults to 1024 multiplier.
-        #                  see: _get_cpu_shares for further explaination
-        num_cpu = container['Config'].get('CpuShares', 0) / 1024
+        # todo: check 1024 multiplier
+        num_cpu = pod['Config'].get('CpuShares', 0) / 1024
 
-        # FIXME(ewindisch): Improve use of statistics:
-        #                   For 'mem', we should expose memory.stat.rss, and
-        #                   for cpu_time we should expose cpuacct.stat.system,
-        #                   but these aren't yet exposed by Docker.
-        #
-        #                   Also see:
-        #                    docker/docs/sources/articles/runmetrics.md
         info = hardware.InstanceInfo(
             max_mem_kb=mem,
             mem_kb=mem,
@@ -324,6 +285,7 @@ class HyperDriver(driver.ComputeDriver):
 
         memory = hostinfo.get_memory_usage()
         disk = hostinfo.get_disk_usage()
+        cur_hv_type = hv_type.KVM #todo: check
         stats = {
             'vcpus': hostinfo.get_total_vcpus(),
             'vcpus_used': hostinfo.get_vcpus_used(self.list_instances(True)),
@@ -338,29 +300,11 @@ class HyperDriver(driver.ComputeDriver):
             'cpu_info': '?',
             'numa_topology': None,
             'supported_instances': jsonutils.dumps([
-                (arch.I686, hv_type.DOCKER, vm_mode.EXE),
-                (arch.X86_64, hv_type.DOCKER, vm_mode.EXE)
+                (arch.I686, cur_hv_type, vm_mode.EXE),
+                (arch.X86_64, cur_hv_type, vm_mode.EXE)
             ])
         }
         return stats
-
-    def _find_container_pid(self, container_id):
-        n = 0
-        while True:
-            # NOTE(samalba): We wait for the process to be spawned inside the
-            # container in order to get the the "container pid". This is
-            # usually really fast. To avoid race conditions on a slow
-            # machine, we allow 10 seconds as a hard limit.
-            if n > 20:
-                return
-            info = self.docker.inspect_container(container_id)
-            if info:
-                pid = info['State']['Pid']
-                # Pid is equal to zero if it isn't assigned yet
-                if pid:
-                    return pid
-            time.sleep(0.5)
-            n += 1
 
     def _get_memory_limit_bytes(self, instance):
         if isinstance(instance, objects.Instance):
@@ -382,15 +326,16 @@ class HyperDriver(driver.ComputeDriver):
         msg = 'Image name "%s" does not exist, fetching it...'
         LOG.debug(msg, image_meta['name'])
 
-        shared_directory = CONF.docker.shared_directory
+        shared_directory = CONF.hyper.shared_directory
+        #todo: check image location
         if (shared_directory and
                 os.path.exists(os.path.join(shared_directory,
                                             image_meta['id']))):
             try:
-                self.docker.load_repository_file(
+                self.docker.load_image(
                     self._encode_utf8(image_meta['name']),
                     os.path.join(shared_directory, image_meta['id']))
-                return self.docker.inspect_image(
+                return self.hyper.inspect_image(
                     self._encode_utf8(image_meta['name']))
             except Exception as e:
                 # If failed to load image from shared_directory, continue
@@ -399,9 +344,7 @@ class HyperDriver(driver.ComputeDriver):
                               'directory: %s'),
                             e, instance=instance, exc_info=True)
 
-        # TODO(imain): It would be nice to do this with file like object
-        # passing but that seems a bit complex right now.
-        snapshot_directory = CONF.docker.snapshots_directory
+        snapshot_directory = CONF.hyper.snapshots_directory
         fileutils.ensure_tree(snapshot_directory)
         with utils.tempdir(dir=snapshot_directory) as tmpdir:
             try:
@@ -409,7 +352,7 @@ class HyperDriver(driver.ComputeDriver):
 
                 images.fetch(context, image_meta['id'], out_path,
                              instance['user_id'], instance['project_id'])
-                self.docker.load_repository_file(
+                self.hyper.load_image(
                     self._encode_utf8(image_meta['name']),
                     out_path
                 )
@@ -420,7 +363,7 @@ class HyperDriver(driver.ComputeDriver):
                 raise exception.NovaException(msg.format(e),
                                               instance_id=image_meta['name'])
 
-        return self.docker.inspect_image(self._encode_utf8(image_meta['name']))
+        return self.hyper.inspect_image(self._encode_utf8(image_meta['name']))
 
     def _extract_dns_entries(self, network_info):
         dns = []
@@ -434,20 +377,20 @@ class HyperDriver(driver.ComputeDriver):
                             dns.append(dns_entry['address'])
         return dns if dns else None
 
-    def _get_key_binds(self, container_id, instance):
+    def _get_key_binds(self, vm_id, instance):
         binds = None
         # Handles the key injection.
-        if CONF.docker.inject_key and instance.get('key_data'):
+        if CONF.hyper.inject_key and instance.get('key_data'):
             key = str(instance['key_data'])
-            mount_origin = self._inject_key(container_id, key)
+            mount_origin = self._inject_key(vm_id, key)
             binds = {mount_origin: {'bind': '/root/.ssh', 'ro': True}}
         return binds
 
-    def _start_container(self, container_id, instance, network_info=None):
-        binds = self._get_key_binds(container_id, instance)
+    def _start_pod(self, pod_id, instance, network_info=None):
+        binds = self._get_key_binds(pod_id, instance)
         dns = self._extract_dns_entries(network_info)
-        self.docker.start(container_id, binds=binds, dns=dns,
-                          privileged=CONF.docker.privileged)
+        self.hyper.start(pod_id, binds=binds, dns=dns,
+                         privileged=CONF.hyper.privileged)
 
         if not network_info:
             return
@@ -458,8 +401,8 @@ class HyperDriver(driver.ComputeDriver):
             LOG.warning(_('Cannot setup network: %s'),
                         e, instance=instance, exc_info=True)
             msg = _('Cannot setup network: {0}')
-            self.docker.kill(container_id)
-            self.docker.remove_container(container_id, force=True)
+            self.hyper.kill(pod_id)
+            self.hyper.remove_pod(pod_id, force=True)
             raise exception.InstanceDeployFailure(msg.format(e),
                                                   instance_id=instance['name'])
 
@@ -475,7 +418,7 @@ class HyperDriver(driver.ComputeDriver):
         }
 
         try:
-            image = self.docker.inspect_image(self._encode_utf8(image_name))
+            image = self.hyper.inspect_image(self._encode_utf8(image_name))
         except errors.APIError:
             image = None
 
@@ -489,13 +432,13 @@ class HyperDriver(driver.ComputeDriver):
         if 'metadata' in instance:
             args['environment'] = nova_utils.instance_meta(instance)
 
-        container_id = self._create_container(instance, image_name, args)
-        if not container_id:
+        pod_id = self._create_pod(instance, image_name, args)
+        if not pod_id:
             raise exception.InstanceDeployFailure(
-                _('Cannot create container'),
+                _('Cannot create pod'),
                 instance_id=instance['name'])
 
-        self._start_container(container_id, instance, network_info)
+        self._start_pod(pod_id, instance, network_info)
 
     def _inject_key(self, id, key):
         if isinstance(id, dict):
@@ -531,28 +474,28 @@ class HyperDriver(driver.ComputeDriver):
                           instance=instance)
 
     def restore(self, instance):
-        container_id = self._get_container_id(instance)
-        if not container_id:
+        pod_id = self.hyper.find_pod_by_uuid(instance)
+        if not pod_id:
             return
 
-        self._start_container(container_id, instance)
+        self._start_pod(pod_id, instance)
 
-    def _stop(self, container_id, instance, timeout=5):
+    def _stop(self, pod_id, instance, timeout=5):
         try:
-            self.docker.stop(container_id, max(timeout, 5))
+            self.hyper.stop(pod_id, max(timeout, 5))
         except errors.APIError as e:
-            if 'Unpause the container before stopping' not in e.explanation:
-                LOG.warning(_('Cannot stop container: %s'),
-                            e, instance=instance, exc_info=True)
-                raise
-            self.docker.unpause(container_id)
-            self.docker.stop(container_id, timeout)
+            #if 'Unpause the pod before stopping' not in e.explanation:
+            #    LOG.warning(_('Cannot stop container: %s'),
+            #                e, instance=instance, exc_info=True)
+            #    raise
+            self.hyper.unpause(pod_id)
+            self.hyper.stop(pod_id, timeout)
 
     def soft_delete(self, instance):
-        container_id = self._get_container_id(instance)
-        if not container_id:
+        pod_id = self.hyper.find_pod_by_uuid(instance)
+        if not pod_id:
             return
-        self._stop(container_id, instance)
+        self._stop(pod_id, instance)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
@@ -563,35 +506,35 @@ class HyperDriver(driver.ComputeDriver):
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
         """Cleanup after instance being destroyed by Hypervisor."""
-        container_id = self._get_container_id(instance)
-        if not container_id:
+        pod_id = self.hyper.find_pod_by_uuid(instance)
+        if not pod_id:
             self.unplug_vifs(instance, network_info)
             return
-        self.docker.remove_container(container_id, force=True)
-        network.teardown_network(container_id)
+        self.hyper.remove_pod(pod_id, force=True)
+        network.teardown_network(pod_id)
         self.unplug_vifs(instance, network_info)
-        if CONF.docker.inject_key:
-            self._cleanup_key(instance, container_id)
+        if CONF.hyper.inject_key:
+            self._cleanup_key(instance, pod_id)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
-        container_id = self._get_container_id(instance)
-        if not container_id:
+        pod_id = self.hyper.find_pod_by_uuid(instance)
+        if not pod_id:
             return
-        self._stop(container_id, instance)
+        self._stop(pod_id, instance)
         try:
-            network.teardown_network(container_id)
+            network.teardown_network(pod_id)
             if network_info:
                 self.unplug_vifs(instance, network_info)
         except Exception as e:
-            LOG.warning(_('Cannot destroy the container network'
+            LOG.warning(_('Cannot destroy the pod network'
                           ' during reboot {0}').format(e),
                         exc_info=True)
             return
 
-        binds = self._get_key_binds(container_id, instance)
+        binds = self._get_key_binds(pod_id, instance)
         dns = self._extract_dns_entries(network_info)
-        self.docker.start(container_id, binds=binds, dns=dns)
+        self.pod.start(pod_id, binds=binds, dns=dns)
         try:
             if network_info:
                 self.plug_vifs(instance, network_info)
@@ -624,10 +567,10 @@ class HyperDriver(driver.ComputeDriver):
                                                   instance_id=instance['name'])
 
     def power_off(self, instance, timeout=0, retry_interval=0):
-        container_id = self._get_container_id(instance)
-        if not container_id:
+        pod_id = self.hyper.find_pod_by_uuid(instance)
+        if not pod_id:
             return
-        self._stop(container_id, instance, timeout)
+        self._stop(pod_id, instance, timeout)
 
     def pause(self, instance):
         """Pause the specified instance.
@@ -635,13 +578,13 @@ class HyperDriver(driver.ComputeDriver):
         :param instance: nova.objects.instance.Instance
         """
         try:
-            cont_id = self._get_container_id(instance)
-            if not self.docker.pause(cont_id):
+            pod_id = self.hyper.find_pod_by_uuid(instance)
+            if not self.hyper.pause(pod_id):
                 raise exception.NovaException
         except Exception as e:
-            LOG.debug(_('Error pause container: %s'),
+            LOG.debug(_('Error pause pod: %s'),
                       e, instance=instance, exc_info=True)
-            msg = _('Cannot pause container: {0}')
+            msg = _('Cannot pause pod: {0}')
             raise exception.NovaException(msg.format(e),
                                           instance_id=instance['name'])
 
@@ -651,25 +594,25 @@ class HyperDriver(driver.ComputeDriver):
         :param instance: nova.objects.instance.Instance
         """
         try:
-            cont_id = self._get_container_id(instance)
-            if not self.docker.unpause(cont_id):
+            pod_id = self.hyper.find_pod_by_uuid(instance)
+            if not self.hyper.unpause(pod_id):
                 raise exception.NovaException
         except Exception as e:
-            LOG.debug(_('Error unpause container: %s'),
+            LOG.debug(_('Error unpause pod: %s'),
                       e, instance=instance, exc_info=True)
-            msg = _('Cannot unpause container: {0}')
+            msg = _('Cannot unpause pod: {0}')
             raise exception.NovaException(msg.format(e),
                                           instance_id=instance['name'])
 
     def get_console_output(self, context, instance):
-        container_id = self._get_container_id(instance)
-        if not container_id:
+        pod_id = self.hyper.find_pod_by_uuid(instance)
+        if not pod_id:
             return ''
-        return self.docker.get_container_logs(container_id)
+        return self.hyper.get_pod_logs(pod_id)
 
     def snapshot(self, context, instance, image_href, update_task_state):
-        container_id = self._get_container_id(instance)
-        if not container_id:
+        pod_id = self.hyper.find_pod_by_uuid(instance)
+        if not pod_id:
             raise exception.InstanceNotRunning(instance_id=instance['uuid'])
 
         update_task_state(task_state=task_states.IMAGE_PENDING_UPLOAD)
@@ -684,7 +627,7 @@ class HyperDriver(driver.ComputeDriver):
             commit_name = parts[0]
             tag = parts[1]
 
-        self.docker.commit(container_id, repository=commit_name, tag=tag)
+        self.hyper.commit(pod_id, repository=commit_name, tag=tag)
 
         update_task_state(task_state=task_states.IMAGE_UPLOADING,
                           expected_state=task_states.IMAGE_PENDING_UPLOAD)
@@ -706,6 +649,8 @@ class HyperDriver(driver.ComputeDriver):
         if instance['os_type']:
             metadata['properties']['os_type'] = instance['os_type']
 
+        # todo: ?????
+        """
         try:
             raw = self.docker.get_image(commit_name)
             # Patch the seek/tell as urllib3 throws UnsupportedOperation
@@ -718,44 +663,32 @@ class HyperDriver(driver.ComputeDriver):
             msg = _('Error saving image: {0}')
             raise exception.NovaException(msg.format(e),
                                           instance_id=instance['name'])
+        """
 
     def _get_cpu_shares(self, instance):
-        """Get allocated CPUs from configured flavor.
-
-        Docker/lxc supports relative CPU allocation.
-
-        cgroups specifies following:
-         /sys/fs/cgroup/lxc/cpu.shares = 1024
-         /sys/fs/cgroup/cpu.shares = 1024
-
-        For that reason we use 1024 as multiplier.
-        This multiplier allows to divide the CPU
-        resources fair with containers started by
-        the user (e.g. docker registry) which has
-        the default CpuShares value of zero.
-        """
+        #todo: 1024 multiplier?
         if isinstance(instance, objects.Instance):
             flavor = instance.get_flavor()
         else:
             flavor = flavors.extract_flavor(instance)
         return int(flavor['vcpus']) * 1024
 
-    def _create_container(self, instance, image_name, args):
+    def _create_pod(self, instance, image_name, args):
         name = "nova-" + instance['uuid']
         hostname = args.pop('hostname', None)
         cpu_shares = args.pop('cpu_shares', None)
         network_disabled = args.pop('network_disabled', False)
         environment = args.pop('environment', None)
         command = args.pop('command', None)
-        host_config = docker_utils.create_host_config(**args)
-        return self.docker.create_container(image_name,
-                                            name=self._encode_utf8(name),
-                                            hostname=hostname,
-                                            cpu_shares=cpu_shares,
-                                            network_disabled=network_disabled,
-                                            environment=environment,
-                                            command=command,
-                                            host_config=host_config)
+        host_config = self.hyper.create_host_config(**args)
+        return self.hyper.create_pod(image_name,
+                                     name=self._encode_utf8(name),
+                                     hostname=hostname,
+                                     cpu_shares=cpu_shares,
+                                     network_disabled=network_disabled,
+                                     environment=environment,
+                                     command=command,
+                                     host_config=host_config)
 
     def get_host_uptime(self):
         return hostutils.sys_uptime()

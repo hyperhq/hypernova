@@ -168,7 +168,7 @@ class HyperGenericVIFDriver(object):
         # the bridge.
         pass
 
-    def attach(self, instance, vif, container_id):
+    def attach(self, instance, vif, pod_id):
         vif_type = vif['type']
         if_remote_name = 'ns%s' % vif['id'][:11]
         gateway = network.find_gateway(instance, vif['network'])
@@ -181,13 +181,13 @@ class HyperGenericVIFDriver(object):
 
         try:
             utils.execute('ip', 'link', 'set', if_remote_name, 'netns',
-                          container_id, run_as_root=True)
-            utils.execute('ip', 'netns', 'exec', container_id, 'ip', 'link',
+                          pod_id, run_as_root=True)
+            utils.execute('ip', 'netns', 'exec', pod_id, 'ip', 'link',
                           'set', if_remote_name, 'address', vif['address'],
                           run_as_root=True)
-            utils.execute('ip', 'netns', 'exec', container_id, 'ip', 'addr',
+            utils.execute('ip', 'netns', 'exec', pod_id, 'ip', 'addr',
                           'add', ip, 'dev', if_remote_name, run_as_root=True)
-            utils.execute('ip', 'netns', 'exec', container_id, 'ip', 'link',
+            utils.execute('ip', 'netns', 'exec', pod_id, 'ip', 'link',
                           'set', if_remote_name, 'up', run_as_root=True)
 
             # Setup MTU on if_remote_name is required if it is a non
@@ -196,12 +196,12 @@ class HyperGenericVIFDriver(object):
             if vif.get('mtu') is not None:
                 mtu = vif.get('mtu')
             if mtu is not None:
-                utils.execute('ip', 'netns', 'exec', container_id, 'ip',
+                utils.execute('ip', 'netns', 'exec', pod_id, 'ip',
                               'link', 'set', if_remote_name, 'mtu', mtu,
                               run_as_root=True)
 
             if gateway is not None:
-                utils.execute('ip', 'netns', 'exec', container_id,
+                utils.execute('ip', 'netns', 'exec', pod_id,
                               'ip', 'route', 'replace', 'default', 'via',
                               gateway, 'dev', if_remote_name, run_as_root=True)
         except Exception:

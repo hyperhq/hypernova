@@ -25,3 +25,52 @@ class HyperHTTPClient(HyperClient):
     # todo
     def ping(self):
         return True
+
+    def pods(self, all=True):
+        #[id]
+        return []
+
+    def inspect_pods(self, pod_id):
+        #[Config][Hostname]
+        return {}
+
+    def find_pod_by_uuid(self, uuid):
+        #[id]
+        return {}
+
+    def load_image(self, image, path):
+        return True
+
+    def inspect_image(self, image):
+        return {}
+
+    def start(self, pod_id, binds=None, dns=None, privileged=False):
+        return True
+
+    def kill(self, pod_id):
+        return True
+
+    def remove_pod(self, pod_id, force=False):
+        return True
+
+    def stop(self, pod_id, timeout):
+        return True
+
+    def pause(self, pod_id):
+        return True
+
+    def unpause(self, pod_id):
+        return True
+
+    # ?
+    def create_host_config(self, ?**args):
+        return {}
+
+    def create_pod(self, image_name, name, hostname, cpu_shares, network_disabled,environment, command, host_config):
+        return True
+
+    def get_pod_logs(self, pod_id):
+        return "logs"
+
+    def commit(self, pod_id, repository, tag):
+        return True
