@@ -96,7 +96,7 @@ docker_opts = [
                     'the shared directory by image ID.'),
     cfg.BoolOpt('privileged',
                 default=False,
-                help='Set true can own all root privileges in a container.'),
+                help='Set true can own all root privileges in a pod-vm.'),
 ]
 
 CONF.register_opts(hyper_opts, 'hyper')
@@ -208,13 +208,13 @@ class HyperDriver(driver.ComputeDriver):
         return res
 
     def attach_interface(self, instance, image_meta, vif):
-        """Attach an interface to the container."""
+        """Attach an interface to the pod-vm."""
         self.vif_driver.plug(instance, vif)
         pod_id = self.hyper.find_pod_by_uuid(instance['uuid']).get('id')
         self.vif_driver.attach(instance, vif, pod_id)
 
     def detach_interface(self, instance, vif):
-        """Detach an interface from the container."""
+        """Detach an interface from the pod-vm."""
         self.vif_driver.unplug(instance, vif)
 
     def plug_vifs(self, instance, network_info):
@@ -546,12 +546,12 @@ class HyperDriver(driver.ComputeDriver):
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
-        container_id = self._get_container_id(instance)
-        if not container_id:
+        pod_id = self.hyper.find_pod_by_uuid(instance)
+        if not pod_id:
             return
-        binds = self._get_key_binds(container_id, instance)
+        binds = self._get_key_binds(pod_id, instance)
         dns = self._extract_dns_entries(network_info)
-        self.docker.start(container_id, binds=binds, dns=dns)
+        self.hyper.start(pod_id, binds=binds, dns=dns)
         if not network_info:
             return
         try:
@@ -561,8 +561,8 @@ class HyperDriver(driver.ComputeDriver):
             LOG.debug(_('Cannot setup network: %s'),
                       e, instance=instance, exc_info=True)
             msg = _('Cannot setup network: {0}')
-            self.docker.kill(container_id)
-            self.docker.remove_container(container_id, force=True)
+            self.hyper.kill(pod_id)
+            self.hyper.remove_pod(pod_id, force=True)
             raise exception.InstanceDeployFailure(msg.format(e),
                                                   instance_id=instance['name'])
 
