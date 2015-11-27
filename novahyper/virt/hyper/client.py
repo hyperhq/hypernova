@@ -15,62 +15,79 @@
 
 from oslo_config import cfg
 
+from novahyper.virt.hyper import api
+
+import requests
+import requests.exceptions
+import six
+
+import json
+
 CONF = cfg.CONF
+DEFAULT_VERSION="1"
 
+class HyperHTTPClient(
+        requests.Session,
+        api.HyperClient):
 
-class HyperHTTPClient(HyperClient):
     def __init__(self, url='unix://var/run/hyper.sock'):
-        super(HyperHTTPClient, self).__init__()
+        super(HyperHTTPClient, self).__init__(url)
+        self.base_url = url
+        self._version = DEFAULT_VERSION
 
-    # todo
-    def ping(self):
-        return True
+    def set_version(self, version):
+        self._version = version
 
-    def pods(self, all=True):
-        #[id]
-        return []
+    def _raise_for_status(self, response, explanation=None):
+        """Raises stored :class:`APIError`, if one occurred."""
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                raise errors.NotFound(e, response, explanation=explanation)
+            raise errors.APIError(e, response, explanation=explanation)
 
-    def inspect_pods(self, pod_id):
-        #[Config][Hostname]
-        return {}
+    def _result(self, response, json=False, binary=False):
+        assert not (json and binary)
+        self._raise_for_status(response)
 
-    def find_pod_by_uuid(self, uuid):
-        #[id]
-        return {}
+        if json:
+            return response.json()
+        if binary:
+            return response.content
+        return response.text
 
-    def load_image(self, image, path):
-        return True
+    def _set_request_timeout(self, kwargs):
+        """Prepare the kwargs for an HTTP request by inserting the timeout
+        parameter, if not already present."""
+        kwargs.setdefault('timeout', self.timeout)
+        return kwargs
 
-    def inspect_image(self, image):
-        return {}
+    def _post(self, url, **kwargs):
+        return self.post(url, **self._set_request_timeout(kwargs))
 
-    def start(self, pod_id, binds=None, dns=None, privileged=False):
-        return True
+    def _get(self, url, **kwargs):
+        return self.get(url, **self._set_request_timeout(kwargs))
 
-    def kill(self, pod_id):
-        return True
+    def _put(self, url, **kwargs):
+        return self.put(url, **self._set_request_timeout(kwargs))
 
-    def remove_pod(self, pod_id, force=False):
-        return True
+    def _delete(self, url, **kwargs):
+        return self.delete(url, **self._set_request_timeout(kwargs))
 
-    def stop(self, pod_id, timeout):
-        return True
+    def _url(self, pathfmt, *args, **kwargs):
+        for arg in args:
+            if not isinstance(arg, six.string_types):
+                raise ValueError(
+                    'Expected a string but found {0} ({1}) '
+                    'instead'.format(arg, type(arg))
+                )
 
-    def pause(self, pod_id):
-        return True
+        args = map(six.moves.urllib.parse.quote_plus, args)
 
-    def unpause(self, pod_id):
-        return True
-
-    # ?
-    def create_host_config(self, ?**args):
-        return {}
-
-    def create_pod(self, image_name, name, hostname, cpu_shares, network_disabled,environment, command, host_config):
-        return True
-
-    def get_pod_logs(self, pod_id):
-        return "logs"
-
-    def commit(self, pod_id, repository, tag):
-        return True
+        if kwargs.get('versioned_api', True):
+            return '{0}/v{1}{2}'.format(
+                self.base_url, self._version, pathfmt.format(*args)
+            )
+        else:
+            return '{0}{1}'.format(self.base_url, pathfmt.format(*args))

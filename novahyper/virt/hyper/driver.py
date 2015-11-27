@@ -60,7 +60,7 @@ CONF = cfg.CONF
 CONF.import_opt('my_ip', 'nova.netconf')
 CONF.import_opt('instances_path', 'nova.compute.manager')
 
-docker_opts = [
+hyper_opts = [
     cfg.StrOpt('root_directory',
                default='/var/lib/hyper',
                help='Path to use as the root of the Hyper runtime.'),
@@ -71,15 +71,15 @@ docker_opts = [
     cfg.BoolOpt('api_insecure',
                 default=False,
                 help='If set, ignore any SSL validation issues'),
-    cfg.StrOpt('ca_file',
-               help='Location of CA certificates file for '
-                    'securing docker api requests (tlscacert).'),
-    cfg.StrOpt('cert_file',
-               help='Location of TLS certificate file for '
-                    'securing docker api requests (tlscert).'),
-    cfg.StrOpt('key_file',
-               help='Location of TLS private key file for '
-                    'securing docker api requests (tlskey).'),
+#    cfg.StrOpt('ca_file',
+#               help='Location of CA certificates file for '
+#                    'securing docker api requests (tlscacert).'),
+#    cfg.StrOpt('cert_file',
+#               help='Location of TLS certificate file for '
+#                    'securing docker api requests (tlscert).'),
+#    cfg.StrOpt('key_file',
+#               help='Location of TLS private key file for '
+#                    'securing docker api requests (tlskey).'),
     cfg.StrOpt('vif_driver',
                default='novahyper.virt.hyper.vifs.HyperGenericVIFDriver'),
     cfg.StrOpt('snapshots_directory',
@@ -294,7 +294,7 @@ class HyperDriver(driver.ComputeDriver):
             'local_gb': disk['total'] / units.Gi,
             'local_gb_used': disk['used'] / units.Gi,
             'disk_available_least': disk['available'] / units.Gi,
-            'hypervisor_type': 'docker',
+            'hypervisor_type': 'kvm', #todo: check
             'hypervisor_version': utils.convert_version_to_int('1.0'),
             'hypervisor_hostname': self._nodename,
             'cpu_info': '?',
@@ -332,7 +332,7 @@ class HyperDriver(driver.ComputeDriver):
                 os.path.exists(os.path.join(shared_directory,
                                             image_meta['id']))):
             try:
-                self.docker.load_image(
+                self.hyper.load_image(
                     self._encode_utf8(image_meta['name']),
                     os.path.join(shared_directory, image_meta['id']))
                 return self.hyper.inspect_image(
@@ -610,6 +610,7 @@ class HyperDriver(driver.ComputeDriver):
             return ''
         return self.hyper.get_pod_logs(pod_id)
 
+    #todo
     def snapshot(self, context, instance, image_href, update_task_state):
         pod_id = self.hyper.find_pod_by_uuid(instance)
         if not pod_id:
