@@ -198,7 +198,7 @@ class HyperDriver(driver.ComputeDriver):
     def list_instances(self, inspect=False):
         res = []
         for pod in self.hyper.pods(all=True):
-            info = self.hyper.inspect_pods(pod['id'])
+            info = self.hyper.inspect_pod(pod['id'])
             if not info:
                 continue
             if inspect:
@@ -306,13 +306,13 @@ class HyperDriver(driver.ComputeDriver):
         }
         return stats
 
-    def _get_memory_limit_bytes(self, instance):
+    def _get_memory_limit_mbytes(self, instance):
         if isinstance(instance, objects.Instance):
-            return instance.get_flavor().memory_mb * units.Mi
+            return instance.get_flavor().memory_mb
         else:
             system_meta = utils.instance_sys_meta(instance)
             return int(system_meta.get(
-                'instance_type_memory_mb', 0)) * units.Mi
+                'instance_type_memory_mb', 0))
 
     def _get_image_name(self, context, instance, image):
         fmt = image['container_format']
@@ -412,9 +412,9 @@ class HyperDriver(driver.ComputeDriver):
         image_name = self._get_image_name(context, instance, image_meta)
         args = {
             'hostname': instance['name'],
-            'mem_limit': self._get_memory_limit_bytes(instance),
+            'mem_limit': self._get_memory_limit_mbytes(instance),
             'cpu_shares': self._get_cpu_shares(instance),
-            'network_disabled': True,
+            'network_disabled': False, #todo: check
         }
 
         try:
@@ -667,12 +667,11 @@ class HyperDriver(driver.ComputeDriver):
         """
 
     def _get_cpu_shares(self, instance):
-        #todo: 1024 multiplier?
         if isinstance(instance, objects.Instance):
             flavor = instance.get_flavor()
         else:
             flavor = flavors.extract_flavor(instance)
-        return int(flavor['vcpus']) * 1024
+        return int(flavor['vcpus'])
 
     def _create_pod(self, instance, image_name, args):
         name = "nova-" + instance['uuid']
@@ -681,7 +680,8 @@ class HyperDriver(driver.ComputeDriver):
         network_disabled = args.pop('network_disabled', False)
         environment = args.pop('environment', None)
         command = args.pop('command', None)
-        host_config = self.hyper.create_host_config(**args)
+        host_config = args
+        #host_config = self.hyper.create_host_config(**args) #todo: check
         return self.hyper.create_pod(image_name,
                                      name=self._encode_utf8(name),
                                      hostname=hostname,

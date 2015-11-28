@@ -14,68 +14,96 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
+import json
 
 class HyperClient():
     def __init__(self, url):
         self.base_url = url
 
     def ping(self):
-        result = self._result(self._get(self._url('/info')))
+        try:
+            self._result(self._get(self._url('/info')))
+        except Exception:
+            return False
+        return True
+
+    def info(self):
+        return self._result(self._get(self._url('/info')))
 
     def pods(self, all=True):
-        #[id]
-        return []
+        return self._result(self._get(self._url('/list?item=pod')))
 
-    def inspect_pods(self, pod_id):
+    # todo: get pod (vm) info with ID
+    def inspect_pod(self, pod_id):
         #[Config][Hostname]
-        return {}
+        return {"Config":{"Hostname":pod_id}}
 
+    # todo: get pod id form uuid (vm id?)
     def find_pod_by_uuid(self, uuid):
         #[id]
-        return {}
+        return {"id": uuid}
 
+    def pull_image(self, image):
+        return self._result(self._get(self._url('/image/create?imageName={0}'.format(image))))
+
+    #todo: login? - use path? ..
     def load_image(self, image, path):
-        return True
+        return self.pull_image(image)
 
+    # todo: get image info from image name
     def inspect_image(self, image):
-        return {}
+        return image
+        #return {}
 
     def start(self, pod_id, binds=None, dns=None, privileged=False):
-        return True
+        return self._result(self._get(self._url('/pod/start?podId={0}'.format(pod_id))))
 
     def kill(self, pod_id):
-        return True
+        return self.stop(pod_if)
 
     def remove_pod(self, pod_id, force=False):
-        return True
+        return self._result(self._delete(self._url('/pod?podId={0}'.format(pod_id))))
 
-    def stop(self, pod_id, timeout):
-        return True
+    def stop(self, pod_id, timeout=0):
+        return self._result(self._get(self._url('/pod/stop?podId={0}&stopVM=yes'.format(pod_id))))
 
     def pause(self, pod_id):
-        return True
+        return self._result(self._get(self._url('/pod/stop?podId={0}&stopVM=no'.format(pod_id))))
 
     def unpause(self, pod_id):
-        return True
+        return self.start(pod_id)
 
-    # ?
-    def create_host_config(self, ?**args):
-        return {}
+    ## ?
+    #todo: check
+    #def create_host_config(self, ?**args):
+    #    return {}
 
+    #todo: clean
     def create_pod(self, image_name, name, hostname, cpu_shares, network_disabled,environment, command, host_config):
-        return True
+        obj = {
+            "id": name,
+            #"tty": True,
+            "resource":{
+                "vcpu": cpu_shares,
+                "memory": host_config['mem_limit'],
+            },
+            "containers": [{
+                "image": image_name,
+                "files": [
+                ],
+            }],
+            "files": [
+            ],
+            "volumes": [
+            ],
+        }
+        obj_str = json.dumps(obj)
+        return self._result(self._post(self._url('/pod/create'), obj_str))
 
+    # todo
     def get_pod_logs(self, pod_id):
         return "logs"
 
+    # todo
     def commit(self, pod_id, repository, tag):
         return True
-
-    #def create_pod(self):
-        #data = {
-        #    "pod_file": "/path/to/podfile"
-        #}
-
-        #r = requests.post(self.url+"/pod/create?podArgs={0}".format(data))
-        #return r.status_code, r.json()
