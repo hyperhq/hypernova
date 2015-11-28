@@ -108,7 +108,8 @@ class HyperDriver(driver.ComputeDriver):
     """Hyper hypervisor driver."""
 
     def __init__(self, virtapi):
-        super(HyperDriver, self).__init__(virtapi)
+        #driver.ComputeDriver.__init__(self, virtapi)
+        super(HyperDriver, self).__init__(virtapi) #todo: check
         self._hyper = None
         vif_class = importutils.import_class(CONF.hyper.vif_driver)
         self.vif_driver = vif_class()

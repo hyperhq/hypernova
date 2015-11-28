@@ -16,7 +16,7 @@
 
 import json
 
-class HyperClient():
+class HyperClient(object):
     def __init__(self, url):
         self.base_url = url
 
