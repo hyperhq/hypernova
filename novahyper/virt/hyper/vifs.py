@@ -83,6 +83,7 @@ class HyperGenericVIFDriver(object):
                random.randint(0x00, 0xff)]
         return ':'.join(map(lambda x: "%02x" % x, mac))
 
+    # todo?
     def plug_bridge(self, instance, vif):
         if_local_name = 'tap%s' % vif['id'][:11]
         if_remote_name = 'ns%s' % vif['id'][:11]
@@ -168,6 +169,7 @@ class HyperGenericVIFDriver(object):
         # the bridge.
         pass
 
+    # todo?
     def attach(self, instance, vif, pod_id):
         vif_type = vif['type']
         if_remote_name = 'ns%s' % vif['id'][:11]
