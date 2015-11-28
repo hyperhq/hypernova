@@ -25,7 +25,6 @@ import socket
 import time
 import uuid
 
-#from docker import errors
 #from docker import utils as docker_utils
 from oslo_config import cfg
 from oslo_log import log
@@ -52,9 +51,10 @@ from nova.virt import images
 
 from novahyper.i18n import _, _LI, _LE
 from novahyper.virt.hyper import client as hyper_client
-#from novadocker.virt.docker import hostinfo
-#from novadocker.virt.docker import network
-#from novadocker.virt import hostutils
+from novahyper.virt.hyper import hostinfo
+from novahyper.virt.hyper import network
+from novahyper.virt.hyper import errors
+from novahyper.virt import hostutils
 
 CONF = cfg.CONF
 CONF.import_opt('my_ip', 'nova.netconf')
@@ -534,7 +534,7 @@ class HyperDriver(driver.ComputeDriver):
 
         binds = self._get_key_binds(pod_id, instance)
         dns = self._extract_dns_entries(network_info)
-        self.pod.start(pod_id, binds=binds, dns=dns)
+        self.hyper.start(pod_id, binds=binds, dns=dns)
         try:
             if network_info:
                 self.plug_vifs(instance, network_info)

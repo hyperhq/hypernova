@@ -16,6 +16,7 @@
 from oslo_config import cfg
 
 from novahyper.virt.hyper import api
+from novahyper.virt.hyper import errors
 
 import requests
 import requests.exceptions
@@ -25,6 +26,7 @@ import json
 
 CONF = cfg.CONF
 DEFAULT_VERSION="1"
+TIMEOUT=30
 
 class HyperHTTPClient(
         requests.Session,
@@ -34,6 +36,7 @@ class HyperHTTPClient(
         super(HyperHTTPClient, self).__init__(url)
         self.base_url = url
         self._version = DEFAULT_VERSION
+        self.timeout = TIMEOUT
 
     def set_version(self, version):
         self._version = version

@@ -59,7 +59,7 @@ class HyperClient():
         return self._result(self._get(self._url('/pod/start?podId={0}'.format(pod_id))))
 
     def kill(self, pod_id):
-        return self.stop(pod_if)
+        return self.stop(pod_id)
 
     def remove_pod(self, pod_id, force=False):
         return self._result(self._delete(self._url('/pod?podId={0}'.format(pod_id))))
