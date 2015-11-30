@@ -286,7 +286,7 @@ class HyperDriver(driver.ComputeDriver):
 
         memory = hostinfo.get_memory_usage()
         disk = hostinfo.get_disk_usage()
-        cur_hv_type = hv_type.KVM #todo: check
+        cur_hv_type = hv_type.HYPER #todo: check
         stats = {
             'vcpus': hostinfo.get_total_vcpus(),
             'vcpus_used': hostinfo.get_vcpus_used(self.list_instances(True)),
@@ -295,7 +295,7 @@ class HyperDriver(driver.ComputeDriver):
             'local_gb': disk['total'] / units.Gi,
             'local_gb_used': disk['used'] / units.Gi,
             'disk_available_least': disk['available'] / units.Gi,
-            'hypervisor_type': 'kvm', #todo: check
+            'hypervisor_type': 'hyper', #todo: check
             'hypervisor_version': utils.convert_version_to_int('1.0'),
             'hypervisor_hostname': self._nodename,
             'cpu_info': '?',

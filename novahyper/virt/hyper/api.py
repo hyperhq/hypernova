@@ -17,8 +17,8 @@
 import json
 
 class HyperClient(object):
-    def __init__(self, url):
-        self.base_url = url
+    def __init__(self):
+        pass
 
     def ping(self):
         try:

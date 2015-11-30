@@ -33,7 +33,7 @@ class HyperHTTPClient(
         api.HyperClient):
 
     def __init__(self, url='unix://var/run/hyper.sock'):
-        super(HyperHTTPClient, self).__init__(url)
+        super(HyperHTTPClient, self).__init__()
         self.base_url = url
         self._version = DEFAULT_VERSION
         self.timeout = TIMEOUT
