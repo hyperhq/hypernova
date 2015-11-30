@@ -102,6 +102,13 @@ class HyperClient(object):
             ],
             "volumes": [
             ],
+            #"interfaces":{
+            #    "bridge": bridge,
+            #    "ifname": tapName,
+            #    "mac": port.MACAddress,
+            #    "ip": ipcidr,
+            #    "gateway": gateway,
+            #}
         }
         obj_str = json.dumps(obj)
         return self._result(self._post(self._url('/pod/create'), obj_str))

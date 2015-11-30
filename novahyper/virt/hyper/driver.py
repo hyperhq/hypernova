@@ -415,7 +415,7 @@ class HyperDriver(driver.ComputeDriver):
             'hostname': instance['name'],
             'mem_limit': self._get_memory_limit_mbytes(instance),
             'cpu_shares': self._get_cpu_shares(instance),
-            'network_disabled': False, #todo: check
+            'network_disabled': False,
         }
 
         try:
