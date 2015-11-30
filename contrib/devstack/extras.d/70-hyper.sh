@@ -63,7 +63,7 @@ if [[ $VIRT_DRIVER == "hyper" ]]; then
     #fi
 
     # Start the daemon - restart just in case the package ever auto-starts...
-    restart_service hyper
+    restart_service hyperd
 
     echo "Waiting for docker daemon to start..."
     #DOCKER_GROUP=$(groups | cut -d' ' -f1)

@@ -16,7 +16,7 @@
 #    under the License.
 
 """
-A Docker Hypervisor which allows running Linux Containers instead of VMs.
+A Hyper.sh Hypervisor which allows running Docker Images as VMs.
 """
 
 import os

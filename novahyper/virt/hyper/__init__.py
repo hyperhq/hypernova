@@ -17,6 +17,6 @@
 :mod:`hyper` -- Nova support for Hyper Hypervisor to run Docker containers
 ==========================================================================
 """
-from novadocker.virt.hyper import driver
+from novahyper.virt.hyper import driver
 
 HyperDriver = driver.HyperDriver

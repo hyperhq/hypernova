@@ -50,7 +50,7 @@ class APIError(requests.exceptions.HTTPError):
         return 500 <= self.response.status_code < 600
 
 
-class DockerException(Exception):
+class HyperException(Exception):
     pass
 
 
@@ -58,20 +58,20 @@ class NotFound(APIError):
     pass
 
 
-class InvalidVersion(DockerException):
+class InvalidVersion(HyperException):
     pass
 
 
-class InvalidRepository(DockerException):
+class InvalidRepository(HyperException):
     pass
 
 
-class InvalidConfigFile(DockerException):
+class InvalidConfigFile(HyperException):
     pass
 
 
-class DeprecatedMethod(DockerException):
+class DeprecatedMethod(HyperException):
     pass
 
-class NullResource(DockerException, ValueError):
+class NullResource(HyperException, ValueError):
     pass
