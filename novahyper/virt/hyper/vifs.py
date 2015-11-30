@@ -116,6 +116,7 @@ class HyperGenericVIFDriver(object):
             return
         undo_mgr = utils.UndoManager()
 
+        #todo: remove?
         try:
             utils.execute('ip', 'link', 'add', 'name', if_local_name, 'type',
                           'veth', 'peer', 'name', if_remote_name,
@@ -169,7 +170,7 @@ class HyperGenericVIFDriver(object):
         # the bridge.
         pass
 
-    # todo?
+    # todo: remove?
     def attach(self, instance, vif, pod_id):
         vif_type = vif['type']
         if_remote_name = 'ns%s' % vif['id'][:11]

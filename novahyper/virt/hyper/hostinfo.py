@@ -54,7 +54,7 @@ def get_vcpus_used(containers):
     for container in containers:
         if isinstance(container, dict):
             total_vcpus_used += container.get('Config', {}).get(
-                'CpuShares', 0) / 1024
+                'CpuShares', 0)
 
     return total_vcpus_used
 

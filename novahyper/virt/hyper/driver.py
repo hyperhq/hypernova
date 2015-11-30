@@ -397,7 +397,7 @@ class HyperDriver(driver.ComputeDriver):
             return
         try:
             self.plug_vifs(instance, network_info)
-            self._attach_vifs(instance, network_info)
+            self._attach_vifs(instance, network_info) #todo: remove?
         except Exception as e:
             LOG.warning(_('Cannot setup network: %s'),
                         e, instance=instance, exc_info=True)
@@ -512,7 +512,7 @@ class HyperDriver(driver.ComputeDriver):
             self.unplug_vifs(instance, network_info)
             return
         self.hyper.remove_pod(pod_id, force=True)
-        network.teardown_network(pod_id)
+        network.teardown_network(pod_id) #todo: remove?
         self.unplug_vifs(instance, network_info)
         if CONF.hyper.inject_key:
             self._cleanup_key(instance, pod_id)
@@ -524,7 +524,7 @@ class HyperDriver(driver.ComputeDriver):
             return
         self._stop(pod_id, instance)
         try:
-            network.teardown_network(pod_id)
+            network.teardown_network(pod_id) #todo: remove?
             if network_info:
                 self.unplug_vifs(instance, network_info)
         except Exception as e:
@@ -539,7 +539,7 @@ class HyperDriver(driver.ComputeDriver):
         try:
             if network_info:
                 self.plug_vifs(instance, network_info)
-                self._attach_vifs(instance, network_info)
+                self._attach_vifs(instance, network_info) #todo: remove?
         except Exception as e:
             LOG.warning(_('Cannot setup network on reboot: {0}'), e,
                         exc_info=True)

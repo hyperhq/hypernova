@@ -34,9 +34,15 @@ class HyperClient(object):
         return self._result(self._get(self._url('/list?item=pod')))
 
     # todo: get pod (vm) info with ID
+    # todo: change CpuShares
     def inspect_pod(self, pod_id):
         #[Config][Hostname]
-        return {"Config":{"Hostname":pod_id}}
+        return {
+            "Config": {
+                "Hostname":pod_id,
+                "CpuShares":1,
+            }
+        }
 
     # todo: get pod id form uuid (vm id?)
     def find_pod_by_uuid(self, uuid):
