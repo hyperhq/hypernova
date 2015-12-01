@@ -13,16 +13,19 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import six
+import sys
+import json
+
+import requests
+import requests.exceptions
+
 from oslo_config import cfg
 
 from novahyper.virt.hyper import api
 from novahyper.virt.hyper import errors
-
-import requests
-import requests.exceptions
-import six
-
-import json
+from novahyper.virt.hyper import utils
+from novahyper.virt.hyper.unixconn import unixconn
 
 CONF = cfg.CONF
 DEFAULT_VERSION="1"
@@ -37,6 +40,14 @@ class HyperHTTPClient(
         self.base_url = url
         self._version = DEFAULT_VERSION
         self.timeout = TIMEOUT
+
+        base_url = utils.parse_host(url, sys.platform)
+        if base_url.startswith('http+unix://'):
+            self._custom_adapter = unixconn.UnixAdapter(base_url, self.timeout)
+            self.mount('http+docker://', self._custom_adapter)
+            self.base_url = 'http+docker://localunixsocket'
+        else:
+            self.base_url = url
 
     def set_version(self, version):
         self._version = version
