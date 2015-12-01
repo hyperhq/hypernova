@@ -199,7 +199,7 @@ class HyperDriver(driver.ComputeDriver):
     def list_instances(self, inspect=False):
         res = []
         for pod in self.hyper.pods(all=True):
-            info = self.hyper.inspect_pod(pod['id'])
+            info = self.hyper.inspect_pod(pod) ## pod['id']
             if not info:
                 continue
             if inspect:

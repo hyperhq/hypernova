@@ -80,6 +80,20 @@ class HyperHTTPClient(
     def _post(self, url, **kwargs):
         return self.post(url, **self._set_request_timeout(kwargs))
 
+    def _post_json(self, url, data, **kwargs):
+        # Go <1.1 can't unserialize null to a string
+        # so we do this disgusting thing here.
+        data2 = {}
+        if data is not None:
+            for k, v in six.iteritems(data):
+                if v is not None:
+                    data2[k] = v
+
+        if 'headers' not in kwargs:
+            kwargs['headers'] = {}
+        kwargs['headers']['Content-Type'] = 'application/json'
+        return self._post(url, data=json.dumps(data2), **kwargs)
+
     def _get(self, url, **kwargs):
         return self.get(url, **self._set_request_timeout(kwargs))
 

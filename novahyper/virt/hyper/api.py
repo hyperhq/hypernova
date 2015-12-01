@@ -110,8 +110,8 @@ class HyperClient(object):
             #    "gateway": gateway,
             #}
         }
-        obj_str = json.dumps(obj)
-        return self._result(self._post(self._url('/pod/create'), obj_str))
+        return self._result(self._post_json(url=self._url('/pod/create'),
+                                            data=obj))
 
     # todo
     def get_pod_logs(self, pod_id):
