@@ -44,8 +44,8 @@ class HyperHTTPClient(
         base_url = utils.parse_host(url, sys.platform)
         if base_url.startswith('http+unix://'):
             self._custom_adapter = unixconn.UnixAdapter(base_url, self.timeout)
-            self.mount('http+docker://', self._custom_adapter)
-            self.base_url = 'http+docker://localunixsocket'
+            self.mount('http+hyper://', self._custom_adapter)
+            self.base_url = 'http+hyper://localunixsocket'
         else:
             self.base_url = url
 
