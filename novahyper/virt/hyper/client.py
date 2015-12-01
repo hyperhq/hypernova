@@ -29,7 +29,7 @@ from novahyper.virt.hyper.unixconn import unixconn
 
 CONF = cfg.CONF
 DEFAULT_VERSION="1"
-TIMEOUT=30
+TIMEOUT=120
 
 class HyperHTTPClient(
         requests.Session,

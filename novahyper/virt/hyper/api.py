@@ -47,10 +47,18 @@ class HyperClient(object):
     # todo: get pod id form uuid (vm id?)
     def find_pod_by_uuid(self, uuid):
         #[id]
-        return {"id": uuid}
+        return {"id": uuid,
+                "State": {
+                    "Running": True,
+                },
+                "Config": {
+                    "Memory": 512,
+                    'CpuShares': 1,
+                }
+            }
 
     def pull_image(self, image):
-        return self._result(self._get(self._url('/image/create?imageName={0}'.format(image))),json=True)
+        return self._result(self._post(self._url('/image/create?imageName={0}'.format(image))),json=True)
 
     #todo: login? - use path? ..
     def load_image(self, image, path):
@@ -62,7 +70,7 @@ class HyperClient(object):
         #return {}
 
     def start(self, pod_id, binds=None, dns=None, privileged=False):
-        return self._result(self._get(self._url('/pod/start?podId={0}'.format(pod_id))),json=True)
+        return self._result(self._post(self._url('/pod/start?podId={0}'.format(pod_id))),json=True)
 
     def kill(self, pod_id):
         return self.stop(pod_id)
@@ -71,10 +79,10 @@ class HyperClient(object):
         return self._result(self._delete(self._url('/pod?podId={0}'.format(pod_id))),json=True)
 
     def stop(self, pod_id, timeout=0):
-        return self._result(self._get(self._url('/pod/stop?podId={0}&stopVM=yes'.format(pod_id))),json=True)
+        return self._result(self._post(self._url('/pod/stop?podId={0}&stopVM=yes'.format(pod_id))),json=True)
 
     def pause(self, pod_id):
-        return self._result(self._get(self._url('/pod/stop?podId={0}&stopVM=no'.format(pod_id))),json=True)
+        return self._result(self._post(self._url('/pod/stop?podId={0}&stopVM=no'.format(pod_id))),json=True)
 
     def unpause(self, pod_id):
         return self.start(pod_id)

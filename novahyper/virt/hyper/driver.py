@@ -252,7 +252,7 @@ class HyperDriver(driver.ComputeDriver):
         mem = pod['Config'].get('Memory', 0)
 
         # todo: check 1024 multiplier
-        num_cpu = pod['Config'].get('CpuShares', 0) / 1024
+        num_cpu = pod['Config'].get('CpuShares', 0)
 
         info = hardware.InstanceInfo(
             max_mem_kb=mem,
@@ -397,7 +397,7 @@ class HyperDriver(driver.ComputeDriver):
             return
         try:
             self.plug_vifs(instance, network_info)
-            self._attach_vifs(instance, network_info) #todo: remove?
+            #self._attach_vifs(instance, network_info) #todo: remove?
         except Exception as e:
             LOG.warning(_('Cannot setup network: %s'),
                         e, instance=instance, exc_info=True)
@@ -433,7 +433,7 @@ class HyperDriver(driver.ComputeDriver):
         if 'metadata' in instance:
             args['environment'] = nova_utils.instance_meta(instance)
 
-        pod_id = self._create_pod(instance, image_name, args)
+        pod_id = self._create_pod(instance, image_name, args).get("ID")
         if not pod_id:
             raise exception.InstanceDeployFailure(
                 _('Cannot create pod'),
