@@ -28,10 +28,10 @@ class HyperClient(object):
         return True
 
     def info(self):
-        return self._result(self._get(self._url('/info')))
+        return self._result(self._get(self._url('/info')),json=True)
 
     def pods(self, all=True):
-        return self._result(self._get(self._url('/list?item=pod')))
+        return self._result(self._get(self._url('/list?item=pod')),json=True)
 
     # todo: get pod (vm) info with ID
     # todo: change CpuShares
@@ -50,7 +50,7 @@ class HyperClient(object):
         return {"id": uuid}
 
     def pull_image(self, image):
-        return self._result(self._get(self._url('/image/create?imageName={0}'.format(image))))
+        return self._result(self._get(self._url('/image/create?imageName={0}'.format(image))),json=True)
 
     #todo: login? - use path? ..
     def load_image(self, image, path):
@@ -62,19 +62,19 @@ class HyperClient(object):
         #return {}
 
     def start(self, pod_id, binds=None, dns=None, privileged=False):
-        return self._result(self._get(self._url('/pod/start?podId={0}'.format(pod_id))))
+        return self._result(self._get(self._url('/pod/start?podId={0}'.format(pod_id))),json=True)
 
     def kill(self, pod_id):
         return self.stop(pod_id)
 
     def remove_pod(self, pod_id, force=False):
-        return self._result(self._delete(self._url('/pod?podId={0}'.format(pod_id))))
+        return self._result(self._delete(self._url('/pod?podId={0}'.format(pod_id))),json=True)
 
     def stop(self, pod_id, timeout=0):
-        return self._result(self._get(self._url('/pod/stop?podId={0}&stopVM=yes'.format(pod_id))))
+        return self._result(self._get(self._url('/pod/stop?podId={0}&stopVM=yes'.format(pod_id))),json=True)
 
     def pause(self, pod_id):
-        return self._result(self._get(self._url('/pod/stop?podId={0}&stopVM=no'.format(pod_id))))
+        return self._result(self._get(self._url('/pod/stop?podId={0}&stopVM=no'.format(pod_id))),json=True)
 
     def unpause(self, pod_id):
         return self.start(pod_id)
@@ -110,8 +110,10 @@ class HyperClient(object):
             #    "gateway": gateway,
             #}
         }
-        return self._result(self._post_json(url=self._url('/pod/create'),
-                                            data=obj))
+        result = self._result(self._post_json(url=self._url('/pod/create'),
+                                              data=obj),
+                              json=True)
+        return result
 
     # todo
     def get_pod_logs(self, pod_id):
