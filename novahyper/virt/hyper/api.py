@@ -96,13 +96,14 @@ class HyperClient(object):
     def create_pod(self, image_name, name, hostname, cpu_shares, network_disabled,environment, command, host_config):
         obj = {
             "id": name,
-            #"tty": True,
+            "tty": True,
             "resource":{
                 "vcpu": cpu_shares,
                 "memory": host_config['mem_limit'],
             },
             "containers": [{
                 "image": image_name,
+                "command": ["/bin/sh"],
                 "files": [
                 ],
             }],
