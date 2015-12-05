@@ -44,10 +44,18 @@ class HyperClient(object):
             }
         }
 
+    def find_pod_from_name(self, name):
+        l = self.find_pods_from_name(name)
+        return (l[0] if len(l) else None)
+
+    #todo
+    def find_pods_from_name(self, name):
+        return ["pod-id"]
+
     # todo: get pod id form uuid (vm id?)
     def find_pod_by_uuid(self, uuid):
-        #[id]
-        return {"id": uuid,
+        pod_id = self.find_pod_from_name("nova-"+uuid)
+        return {"id": pod_id,
                 "State": {
                     "Running": True,
                 },

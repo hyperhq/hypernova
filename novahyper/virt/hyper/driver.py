@@ -208,33 +208,38 @@ class HyperDriver(driver.ComputeDriver):
                 res.append(info['Config'].get('Hostname'))
         return res
 
+    #todo: delete?
     def attach_interface(self, instance, image_meta, vif):
         """Attach an interface to the pod-vm."""
         self.vif_driver.plug(instance, vif)
         pod_id = self.hyper.find_pod_by_uuid(instance['uuid']).get('id')
         self.vif_driver.attach(instance, vif, pod_id)
 
+    #todo: delete?
     def detach_interface(self, instance, vif):
         """Detach an interface from the pod-vm."""
         self.vif_driver.unplug(instance, vif)
 
+    #todo: delete?
     def plug_vifs(self, instance, network_info):
         """Plug VIFs into networks."""
         for vif in network_info:
             self.vif_driver.plug(instance, vif)
         self._start_firewall(instance, network_info)
 
+    #todo: delete?
     def _attach_vifs(self, instance, network_info):
         """Plug VIFs into pod."""
         if not network_info:
             return
-        pod_id = self.hyper.find_pod_by_uuid(instance)
+        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
         if not pod_id:
             return
         # todo: link/create ifaces
         for vif in network_info:
             self.vif_driver.attach(instance, vif, pod_id)
 
+    #todo: delete?
     def unplug_vifs(self, instance, network_info):
         """Unplug VIFs from networks."""
         for vif in network_info:
@@ -286,7 +291,8 @@ class HyperDriver(driver.ComputeDriver):
 
         memory = hostinfo.get_memory_usage()
         disk = hostinfo.get_disk_usage()
-        cur_hv_type = hv_type.HYPER #todo: check
+        cur_hv_type = hv_type.HYPER #todo: check - seems OK
+        # todo: check this
         stats = {
             'vcpus': hostinfo.get_total_vcpus(),
             'vcpus_used': hostinfo.get_vcpus_used(self.list_instances(True)),
@@ -298,7 +304,7 @@ class HyperDriver(driver.ComputeDriver):
             'hypervisor_type': 'hyper', #todo: check
             'hypervisor_version': utils.convert_version_to_int('1.0'),
             'hypervisor_hostname': self._nodename,
-            'cpu_info': '?',
+            'cpu_info': '?', #todo
             'numa_topology': None,
             'supported_instances': jsonutils.dumps([
                 (arch.I686, cur_hv_type, vm_mode.EXE),
@@ -396,8 +402,10 @@ class HyperDriver(driver.ComputeDriver):
         if not network_info:
             return
         try:
-            self.plug_vifs(instance, network_info)
-            #self._attach_vifs(instance, network_info) #todo: remove?
+            #todo: keep?
+            #self.plug_vifs(instance, network_info)
+            #self._attach_vifs(instance, network_info)
+            pass
         except Exception as e:
             LOG.warning(_('Cannot setup network: %s'),
                         e, instance=instance, exc_info=True)
@@ -475,7 +483,7 @@ class HyperDriver(driver.ComputeDriver):
                           instance=instance)
 
     def restore(self, instance):
-        pod_id = self.hyper.find_pod_by_uuid(instance)
+        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
         if not pod_id:
             return
 
@@ -493,7 +501,7 @@ class HyperDriver(driver.ComputeDriver):
             self.hyper.stop(pod_id, timeout)
 
     def soft_delete(self, instance):
-        pod_id = self.hyper.find_pod_by_uuid(instance)
+        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
         if not pod_id:
             return
         self._stop(pod_id, instance)
@@ -507,26 +515,30 @@ class HyperDriver(driver.ComputeDriver):
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
         """Cleanup after instance being destroyed by Hypervisor."""
-        pod_id = self.hyper.find_pod_by_uuid(instance)
+        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
         if not pod_id:
-            self.unplug_vifs(instance, network_info)
+            #todo: keep?
+            #self.unplug_vifs(instance, network_info)
             return
         self.hyper.remove_pod(pod_id, force=True)
-        network.teardown_network(pod_id) #todo: remove?
-        self.unplug_vifs(instance, network_info)
+        #todo: keep?
+        #network.teardown_network(pod_id)
+        #self.unplug_vifs(instance, network_info)
         if CONF.hyper.inject_key:
             self._cleanup_key(instance, pod_id)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
-        pod_id = self.hyper.find_pod_by_uuid(instance)
+        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
         if not pod_id:
             return
         self._stop(pod_id, instance)
         try:
-            network.teardown_network(pod_id) #todo: remove?
-            if network_info:
-                self.unplug_vifs(instance, network_info)
+            #todo: keep?
+            #network.teardown_network(pod_id)
+            #if network_info:
+            #    self.unplug_vifs(instance, network_info)
+            pass
         except Exception as e:
             LOG.warning(_('Cannot destroy the pod network'
                           ' during reboot {0}').format(e),
@@ -539,7 +551,7 @@ class HyperDriver(driver.ComputeDriver):
         try:
             if network_info:
                 self.plug_vifs(instance, network_info)
-                self._attach_vifs(instance, network_info) #todo: remove?
+                #self._attach_vifs(instance, network_info) #todo: remove?
         except Exception as e:
             LOG.warning(_('Cannot setup network on reboot: {0}'), e,
                         exc_info=True)
@@ -547,7 +559,7 @@ class HyperDriver(driver.ComputeDriver):
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
-        pod_id = self.hyper.find_pod_by_uuid(instance)
+        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
         if not pod_id:
             return
         binds = self._get_key_binds(pod_id, instance)
@@ -556,8 +568,10 @@ class HyperDriver(driver.ComputeDriver):
         if not network_info:
             return
         try:
-            self.plug_vifs(instance, network_info)
-            self._attach_vifs(instance, network_info)
+            #todo: keep?
+            #self.plug_vifs(instance, network_info)
+            #self._attach_vifs(instance, network_info)
+            pass
         except Exception as e:
             LOG.debug(_('Cannot setup network: %s'),
                       e, instance=instance, exc_info=True)
@@ -568,7 +582,7 @@ class HyperDriver(driver.ComputeDriver):
                                                   instance_id=instance['name'])
 
     def power_off(self, instance, timeout=0, retry_interval=0):
-        pod_id = self.hyper.find_pod_by_uuid(instance)
+        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
         if not pod_id:
             return
         self._stop(pod_id, instance, timeout)
@@ -579,7 +593,7 @@ class HyperDriver(driver.ComputeDriver):
         :param instance: nova.objects.instance.Instance
         """
         try:
-            pod_id = self.hyper.find_pod_by_uuid(instance)
+            pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
             if not self.hyper.pause(pod_id):
                 raise exception.NovaException
         except Exception as e:
@@ -595,7 +609,7 @@ class HyperDriver(driver.ComputeDriver):
         :param instance: nova.objects.instance.Instance
         """
         try:
-            pod_id = self.hyper.find_pod_by_uuid(instance)
+            pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
             if not self.hyper.unpause(pod_id):
                 raise exception.NovaException
         except Exception as e:
@@ -606,14 +620,14 @@ class HyperDriver(driver.ComputeDriver):
                                           instance_id=instance['name'])
 
     def get_console_output(self, context, instance):
-        pod_id = self.hyper.find_pod_by_uuid(instance)
+        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
         if not pod_id:
             return ''
         return self.hyper.get_pod_logs(pod_id)
 
     #todo
     def snapshot(self, context, instance, image_href, update_task_state):
-        pod_id = self.hyper.find_pod_by_uuid(instance)
+        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
         if not pod_id:
             raise exception.InstanceNotRunning(instance_id=instance['uuid'])
 
