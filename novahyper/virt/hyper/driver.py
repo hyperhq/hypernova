@@ -87,7 +87,7 @@ hyper_opts = [
                help='Location where hyper driver will temporarily store '
                     'snapshots.'),
     cfg.BoolOpt('inject_key',
-                default=False,
+                default=True,
                 help='Inject the ssh public key at boot time'),
     cfg.StrOpt('shared_directory',
                default=None,
@@ -389,7 +389,7 @@ class HyperDriver(driver.ComputeDriver):
         # Handles the key injection.
         if CONF.hyper.inject_key and instance.get('key_data'):
             key = str(instance['key_data'])
-            mount_origin = self._inject_key(vm_id, key)
+            mount_origin = self._inject_key(instance, key)
             binds = {mount_origin: {'bind': '/root/.ssh', 'ro': True}}
         return binds
 
@@ -433,13 +433,18 @@ class HyperDriver(driver.ComputeDriver):
 
         if not image:
             image = self._pull_missing_image(context, image_meta, instance)
+
         # Glance command-line overrides any set in the Docker image
+        #todo: adapt command support
         if (image_meta and
                 image_meta.get('properties', {}).get('os_command_line')):
             args['command'] = image_meta['properties'].get('os_command_line')
 
         if 'metadata' in instance:
             args['environment'] = nova_utils.instance_meta(instance)
+
+        if CONF.hyper.inject_key and instance.get('key_data'):
+            args["sshdir"] = os.path.join(CONF.instances_path, instance["uuid"], '.ssh')
 
         pod_id = self._create_pod(instance, image_name, args).get("ID")
         if not pod_id:
@@ -449,9 +454,11 @@ class HyperDriver(driver.ComputeDriver):
 
         self._start_pod(pod_id, instance, network_info)
 
-    def _inject_key(self, id, key):
-        if isinstance(id, dict):
-            id = id.get('id')
+    def _inject_key(self, instance, key):
+        if isinstance(instance, dict):
+            id = instance.get('uuid')
+        else:
+            id = instance
         sshdir = os.path.join(CONF.instances_path, id, '.ssh')
         key_data = ''.join([
             '\n',
@@ -468,9 +475,12 @@ class HyperDriver(driver.ComputeDriver):
         os.chmod(keys_file, 0o600)
         return sshdir
 
-    def _cleanup_key(self, instance, id):
-        if isinstance(id, dict):
-            id = id.get('id')
+    def _cleanup_key(self, instance, id=None):
+        if isinstance(instance, dict):
+            id = instance.get('uuid')
+        else:
+            id = instance
+        id = instance["uuid"]
         dir = os.path.join(CONF.instances_path, id)
         if os.path.exists(dir):
             LOG.info(_LI('Deleting instance files %s'), dir,
@@ -690,20 +700,16 @@ class HyperDriver(driver.ComputeDriver):
 
     def _create_pod(self, instance, image_name, args):
         name = "nova-" + instance['uuid']
-        hostname = args.pop('hostname', None)
         cpu_shares = args.pop('cpu_shares', None)
-        network_disabled = args.pop('network_disabled', False)
-        environment = args.pop('environment', None)
         command = args.pop('command', None)
+        sshdir = args.pop('sshdir', None)
         host_config = args
         #host_config = self.hyper.create_host_config(**args) #todo: check
         return self.hyper.create_pod(image_name,
                                      name=self._encode_utf8(name),
-                                     hostname=hostname,
                                      cpu_shares=cpu_shares,
-                                     network_disabled=network_disabled,
-                                     environment=environment,
                                      command=command,
+                                     sshdir=sshdir,
                                      host_config=host_config)
 
     def get_host_uptime(self):
