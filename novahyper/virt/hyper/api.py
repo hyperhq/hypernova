@@ -36,9 +36,9 @@ class HyperClient(object):
         for item in pods.get("podData",[]):
             sitem = item.split(":")
             ret.append({
-                "id":item[0],
-                "name":item[1],
-                "status":item[3]
+                "id":sitem[0],
+                "name":sitem[1],
+                "status":sitem[3]
             })
         return ret
 
@@ -70,6 +70,9 @@ class HyperClient(object):
                      'CpuShares': 1,
                  }
              } if pod_id else None)
+
+    def find_pod_id_by_uuid(self, uuid):
+        return self.find_pod_from_name("nova-"+uuid)
 
     def pull_image(self, image):
         return self._result(self._post(self._url('/image/create?imageName={0}'.format(image))),json=True)

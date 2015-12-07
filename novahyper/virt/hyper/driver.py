@@ -212,7 +212,7 @@ class HyperDriver(driver.ComputeDriver):
     def attach_interface(self, instance, image_meta, vif):
         """Attach an interface to the pod-vm."""
         self.vif_driver.plug(instance, vif)
-        pod_id = self.hyper.find_pod_by_uuid(instance['uuid']).get('id')
+        pod_id = self.hyper.find_pod_id_by_uuid(instance['uuid'])
         self.vif_driver.attach(instance, vif, pod_id)
 
     #todo: delete?
@@ -232,7 +232,7 @@ class HyperDriver(driver.ComputeDriver):
         """Plug VIFs into pod."""
         if not network_info:
             return
-        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
+        pod_id = self.hyper.find_pod_id_by_uuid(instance["uuid"])
         if not pod_id:
             return
         # todo: link/create ifaces
@@ -483,7 +483,7 @@ class HyperDriver(driver.ComputeDriver):
                           instance=instance)
 
     def restore(self, instance):
-        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
+        pod_id = self.hyper.find_pod_id_by_uuid(instance["uuid"])
         if not pod_id:
             return
 
@@ -501,7 +501,7 @@ class HyperDriver(driver.ComputeDriver):
             self.hyper.stop(pod_id, timeout)
 
     def soft_delete(self, instance):
-        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
+        pod_id = self.hyper.find_pod_id_by_uuid(instance["uuid"])
         if not pod_id:
             return
         self._stop(pod_id, instance)
@@ -515,7 +515,7 @@ class HyperDriver(driver.ComputeDriver):
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
         """Cleanup after instance being destroyed by Hypervisor."""
-        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
+        pod_id = self.hyper.find_pod_id_by_uuid(instance["uuid"])
         if not pod_id:
             #todo: keep?
             #self.unplug_vifs(instance, network_info)
@@ -529,7 +529,7 @@ class HyperDriver(driver.ComputeDriver):
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
-        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
+        pod_id = self.hyper.find_pod_id_by_uuid(instance["uuid"])
         if not pod_id:
             return
         self._stop(pod_id, instance)
@@ -559,7 +559,7 @@ class HyperDriver(driver.ComputeDriver):
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
-        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
+        pod_id = self.hyper.find_pod_id_by_uuid(instance["uuid"])
         if not pod_id:
             return
         binds = self._get_key_binds(pod_id, instance)
@@ -582,7 +582,7 @@ class HyperDriver(driver.ComputeDriver):
                                                   instance_id=instance['name'])
 
     def power_off(self, instance, timeout=0, retry_interval=0):
-        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
+        pod_id = self.hyper.find_pod_id_by_uuid(instance["uuid"])
         if not pod_id:
             return
         self._stop(pod_id, instance, timeout)
@@ -593,7 +593,7 @@ class HyperDriver(driver.ComputeDriver):
         :param instance: nova.objects.instance.Instance
         """
         try:
-            pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
+            pod_id = self.hyper.find_pod_id_by_uuid(instance["uuid"])
             if not self.hyper.pause(pod_id):
                 raise exception.NovaException
         except Exception as e:
@@ -609,7 +609,7 @@ class HyperDriver(driver.ComputeDriver):
         :param instance: nova.objects.instance.Instance
         """
         try:
-            pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
+            pod_id = self.hyper.find_pod_id_by_uuid(instance["uuid"])
             if not self.hyper.unpause(pod_id):
                 raise exception.NovaException
         except Exception as e:
@@ -620,14 +620,14 @@ class HyperDriver(driver.ComputeDriver):
                                           instance_id=instance['name'])
 
     def get_console_output(self, context, instance):
-        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
+        pod_id = self.hyper.find_pod_id_by_uuid(instance["uuid"])
         if not pod_id:
             return ''
         return self.hyper.get_pod_logs(pod_id)
 
     #todo
     def snapshot(self, context, instance, image_href, update_task_state):
-        pod_id = self.hyper.find_pod_by_uuid(instance["uuid"]).get("id")
+        pod_id = self.hyper.find_pod_id_by_uuid(instance["uuid"])
         if not pod_id:
             raise exception.InstanceNotRunning(instance_id=instance['uuid'])
 
