@@ -30,7 +30,7 @@ def teardown_network(pod_id):
         output, err = utils.execute('ip', '-o', 'netns', 'list')
         for line in output.split('\n'):
             if pod_id == line.strip():
-                utils.execute('ip', 'netns', 'delete', container_id,
+                utils.execute('ip', 'netns', 'delete', pod_id,
                               run_as_root=True)
                 break
     except processutils.ProcessExecutionError:
