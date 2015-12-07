@@ -227,7 +227,7 @@ class HyperDriver(driver.ComputeDriver):
             self.vif_driver.plug(instance, vif)
         self._start_firewall(instance, network_info)
 
-    #todo: delete?
+    #todo: difference between attach and plug?
     def _attach_vifs(self, instance, network_info):
         """Plug VIFs into pod."""
         if not network_info:

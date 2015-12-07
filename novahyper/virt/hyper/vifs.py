@@ -170,7 +170,7 @@ class HyperGenericVIFDriver(object):
         # the bridge.
         pass
 
-    # todo: remove?
+    # todo: remove? - no! do!
     def attach(self, instance, vif, pod_id):
         vif_type = vif['type']
         if_remote_name = 'ns%s' % vif['id'][:11]

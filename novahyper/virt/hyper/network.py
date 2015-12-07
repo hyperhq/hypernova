@@ -25,17 +25,17 @@ from novahyper.i18n import _
 LOG = log.getLogger(__name__)
 
 # todo (called in driver)
-def teardown_network(container_id):
+def teardown_network(pod_id):
     try:
         output, err = utils.execute('ip', '-o', 'netns', 'list')
         for line in output.split('\n'):
-            if container_id == line.strip():
+            if pod_id == line.strip():
                 utils.execute('ip', 'netns', 'delete', container_id,
                               run_as_root=True)
                 break
     except processutils.ProcessExecutionError:
         LOG.warning(_('Cannot remove network namespace, netns id: %s'),
-                    container_id)
+                    pod_id)
 
 
 # ok

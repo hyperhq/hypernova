@@ -31,12 +31,20 @@ class HyperClient(object):
         return self._result(self._get(self._url('/info')),json=True)
 
     def pods(self, all=True):
-        return self._result(self._get(self._url('/list?item=pod')),json=True)
+        pods = self._result(self._get(self._url('/list?item=pod')),json=True)
+        ret = []
+        for item in pods.get("podData",[]):
+            sitem = item.split(":")
+            ret.append({
+                "id":item[0],
+                "name":item[1],
+                "status":item[3]
+            })
+        return ret
 
     # todo: get pod (vm) info with ID
     # todo: change CpuShares
     def inspect_pod(self, pod_id):
-        #[Config][Hostname]
         return {
             "Config": {
                 "Hostname":pod_id,
@@ -48,22 +56,20 @@ class HyperClient(object):
         l = self.find_pods_from_name(name)
         return (l[0] if len(l) else None)
 
-    #todo
     def find_pods_from_name(self, name):
-        return ["pod-id"]
+        return [pod.get("id") for pod in self.pods() if pod.get("name") == name]
 
-    # todo: get pod id form uuid (vm id?)
     def find_pod_by_uuid(self, uuid):
         pod_id = self.find_pod_from_name("nova-"+uuid)
-        return {"id": pod_id,
-                "State": {
-                    "Running": True,
-                },
-                "Config": {
-                    "Memory": 512,
-                    'CpuShares': 1,
-                }
-            }
+        return ({"id": pod_id,
+                 "State": {
+                     "Running": True,
+                 },
+                 "Config": {
+                     "Memory": 512,
+                     'CpuShares': 1,
+                 }
+             } if pod_id else None)
 
     def pull_image(self, image):
         return self._result(self._post(self._url('/image/create?imageName={0}'.format(image))),json=True)
