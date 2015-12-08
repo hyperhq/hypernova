@@ -1,4 +1,5 @@
 # Copyright (c) 2015 HyperHQ Inc.
+# Copyright 2013 dotCloud inc.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -29,7 +30,7 @@ from novahyper.virt.hyper.unixconn import unixconn
 
 CONF = cfg.CONF
 DEFAULT_VERSION="1"
-TIMEOUT=120
+TIMEOUT=120 #todo: higher time? (if auto pull images, maybe).
 
 class HyperHTTPClient(
         requests.Session,

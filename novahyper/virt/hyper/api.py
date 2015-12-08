@@ -1,5 +1,4 @@
 # Copyright (c) 2015 HyperHQ Inc.
-# Copyright 2013 dotCloud inc.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -138,7 +137,7 @@ class HyperClient(object):
             obj["volumes"].append({
                 "name": "sshdir",
                 "source": sshdir,
-                "driver": "dir"
+                "driver": "vfs"
             })
             for container in obj["containers"]:
                 container["volumes"].append({

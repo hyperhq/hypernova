@@ -60,6 +60,16 @@ CONF = cfg.CONF
 CONF.import_opt('my_ip', 'nova.netconf')
 CONF.import_opt('instances_path', 'nova.compute.manager')
 
+# URGENT - todo: network must be managed by nova
+# todo: clean inline comments
+# todo: startup command needs to be defined differently (use image metadata?)
+# todo: ssh key seems not ok, although places on container's fs: ivestigate
+# todo: improve: place key directly in container fs instead of mount
+# todo: images should be passed from glance to Hyper. Need a feature like docker save to implement this
+# todo: need a docker save like feature to perform snapshots
+# todo: some host-related infos maybe be innacurate (but seems ok)
+# todo: see inline todos
+
 hyper_opts = [
     cfg.StrOpt('root_directory',
                default='/var/lib/hyper',
@@ -304,7 +314,7 @@ class HyperDriver(driver.ComputeDriver):
             'hypervisor_type': 'hyper', #todo: check
             'hypervisor_version': utils.convert_version_to_int('1.0'),
             'hypervisor_hostname': self._nodename,
-            'cpu_info': '?', #todo
+            'cpu_info': '?', #todo?
             'numa_topology': None,
             'supported_instances': jsonutils.dumps([
                 (arch.I686, cur_hv_type, vm_mode.EXE),
@@ -455,10 +465,10 @@ class HyperDriver(driver.ComputeDriver):
         self._start_pod(pod_id, instance, network_info)
 
     def _inject_key(self, instance, key):
-        if isinstance(instance, dict):
-            id = instance.get('uuid')
-        else:
-            id = instance
+        #if isinstance(instance, dict):
+        id = instance.get('uuid')
+        #else:
+        #    id = instance
         sshdir = os.path.join(CONF.instances_path, id, '.ssh')
         key_data = ''.join([
             '\n',
@@ -475,12 +485,12 @@ class HyperDriver(driver.ComputeDriver):
         os.chmod(keys_file, 0o600)
         return sshdir
 
-    def _cleanup_key(self, instance, id=None):
-        if isinstance(instance, dict):
-            id = instance.get('uuid')
-        else:
-            id = instance
-        id = instance["uuid"]
+    def _cleanup_key(self, instance):
+        #if isinstance(instance, dict):
+        id = instance.get('uuid')
+        #else:
+        #    id = instance
+        #id = instance["uuid"]
         dir = os.path.join(CONF.instances_path, id)
         if os.path.exists(dir):
             LOG.info(_LI('Deleting instance files %s'), dir,
@@ -535,7 +545,7 @@ class HyperDriver(driver.ComputeDriver):
         #network.teardown_network(pod_id)
         #self.unplug_vifs(instance, network_info)
         if CONF.hyper.inject_key:
-            self._cleanup_key(instance, pod_id)
+            self._cleanup_key(instance)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
