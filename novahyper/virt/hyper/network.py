@@ -24,7 +24,7 @@ from novahyper.i18n import _
 
 LOG = log.getLogger(__name__)
 
-# todo (called in driver)
+# todo (called in driver) - maybe remove
 def teardown_network(pod_id):
     try:
         output, err = utils.execute('ip', '-o', 'netns', 'list')

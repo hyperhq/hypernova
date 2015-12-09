@@ -109,7 +109,7 @@ class HyperClient(object):
     #    return {}
 
     #todo: clean
-    def create_pod(self, image_name, name, cpu_shares, command, sshdir, host_config):
+    def create_pod(self, image_name, name, cpu_shares, command, sshdir, network_info, instance, host_config):
         obj = {
             "id": name,
             "tty": True,
@@ -119,19 +119,12 @@ class HyperClient(object):
             },
             "containers": [{
                 "image": image_name,
-                "command": ["/bin/sh"],
+                "command": ["/bin/sh"], #todo: change to command
                 "files": [],
                 "volumes": [],
             }],
             "files": [],
             "volumes": [],
-            #"interfaces":{
-            #    "bridge": bridge,
-            #    "ifname": tapName,
-            #    "mac": port.MACAddress,
-            #    "ip": ipcidr,
-            #    "gateway": gateway,
-            #}
         }
         if sshdir:
             obj["volumes"].append({
@@ -145,6 +138,17 @@ class HyperClient(object):
                     "path": "/root/.ssh",
                     "readOnly": True
                 })
+        if network_info:
+            for vif in network_info:
+                obj["interface"] = {
+                    "bridge": vif['network']['bridge'],
+                    "ifname": vif['network']['bridge'],
+                    "mac": vif["network"].get("mac_addr"),
+                    "ip": network.find_fixed_ip(instance, vif['network']),
+                    "gateway": network.find_gateway(instance, vif['network'])
+                }
+                break
+
         result = self._result(self._post_json(url=self._url('/pod/create'),
                                               data=obj),
                               json=True)

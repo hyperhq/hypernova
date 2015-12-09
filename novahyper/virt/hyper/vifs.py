@@ -83,7 +83,6 @@ class HyperGenericVIFDriver(object):
                random.randint(0x00, 0xff)]
         return ':'.join(map(lambda x: "%02x" % x, mac))
 
-    # todo?
     def plug_bridge(self, instance, vif):
         if_local_name = 'tap%s' % vif['id'][:11]
         if_remote_name = 'ns%s' % vif['id'][:11]
@@ -116,8 +115,8 @@ class HyperGenericVIFDriver(object):
             return
         undo_mgr = utils.UndoManager()
 
-        #todo: remove?
         try:
+            mac_addr = self._fe_random_mac()
             utils.execute('ip', 'link', 'add', 'name', if_local_name, 'type',
                           'veth', 'peer', 'name', if_remote_name,
                           run_as_root=True)
@@ -126,7 +125,8 @@ class HyperGenericVIFDriver(object):
             # NOTE(samalba): Deleting the interface will delete all
             # associated resources (remove from the bridge, its pair, etc...)
             utils.execute('ip', 'link', 'set', if_local_name, 'address',
-                          self._fe_random_mac(), run_as_root=True)
+                          mac_addr, run_as_root=True)
+            vif["network"]["mac_addr"] = mac_addr
             utils.execute('brctl', 'addif', bridge, if_local_name,
                           run_as_root=True)
             utils.execute('ip', 'link', 'set', if_local_name, 'up',
