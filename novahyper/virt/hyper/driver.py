@@ -61,6 +61,7 @@ CONF.import_opt('my_ip', 'nova.netconf')
 CONF.import_opt('instances_path', 'nova.compute.manager')
 
 # URGENT - todo: network must be managed by nova
+# todo: networking: manage attach vif for attaching floating ip
 # todo: clean inline comments
 # todo: replace startup command in api.create_pod (convert to list)
 # todo: ssh key seems not ok, although places on container's fs: investigate
@@ -217,7 +218,7 @@ class HyperDriver(driver.ComputeDriver):
                 res.append(info['Config'].get('Hostname'))
         return res
 
-    #todo: seems unused
+    # attach floating interface?
     def attach_interface(self, instance, image_meta, vif):
         """Attach an interface to the pod-vm."""
         self.vif_driver.plug(instance, vif)
@@ -453,6 +454,10 @@ class HyperDriver(driver.ComputeDriver):
 
         if CONF.hyper.inject_key and instance.get('key_data'):
             args["sshdir"] = os.path.join(CONF.instances_path, instance["uuid"], '.ssh')
+
+        if network_info:
+            for vif in network_info:
+                vif["network"]["mac_addr"] = self.vif_driver.fe_random_mac()
 
         pod_id = self._create_pod(instance, image_name, network_info, args).get("ID")
         if not pod_id:
