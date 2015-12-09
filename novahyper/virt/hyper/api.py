@@ -14,6 +14,8 @@
 #    under the License.
 
 import json
+from novahyper.virt.hyper import network
+
 
 class HyperClient(object):
     def __init__(self):
