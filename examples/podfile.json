@@ -1,0 +1,27 @@
+{
+    "id": "myweb",
+    "tty": true,
+
+    "resource": {
+        "vcpu": 1,
+        "memory": 128
+    },
+
+    "containers" : [{
+        "image": "nginx:latest",
+        "files":  [{
+            "path": "/var/lib/xxx/xxxx",
+            "filename": "filename",
+            "perm": "0755"
+        }]
+    }],
+
+    "files": [{
+        "name": "filename",
+        "encoding": "raw",
+        "uri": "https://s3.amazonaws/bucket/file.conf",
+        "content": ""
+    }],
+
+    "volumes": []
+}
