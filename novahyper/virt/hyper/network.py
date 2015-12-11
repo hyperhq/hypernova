@@ -24,21 +24,22 @@ from novahyper.i18n import _
 
 LOG = log.getLogger(__name__)
 
-# todo (called in driver) - maybe remove
-def teardown_network(pod_id):
+#todo: devstack seems to crash after deleting the bridge. Why?
+def teardown_network(pod_id, network_info):
+    bridge = ""
     try:
-        output, err = utils.execute('ip', '-o', 'netns', 'list')
-        for line in output.split('\n'):
-            if pod_id == line.strip():
-                utils.execute('ip', 'netns', 'delete', pod_id,
+        done = []
+        for vif in network_info:
+            bridge = vif['network']['bridge']
+            if bridge not in done:
+                utils.execute('ip', 'link', 'delete', bridge,
                               run_as_root=True)
-                break
+                done.append(bridge)
     except processutils.ProcessExecutionError:
-        LOG.warning(_('Cannot remove network namespace, netns id: %s'),
-                    pod_id)
+        LOG.warning(_('Cannot remove bridge, id: %s, pod_id: %s'),
+                    bridge, pod_id)
 
 
-# ok
 def find_fixed_ip(instance, network_info):
     for subnet in network_info['subnets']:
         netmask = subnet['cidr'].split('/')[1]

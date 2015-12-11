@@ -28,7 +28,7 @@ def statvfs():
     return os.statvfs(hyper_path)
 
 
-# todo: seems ok
+
 def get_disk_usage():
     st = statvfs()
     return {
@@ -37,7 +37,7 @@ def get_disk_usage():
         'used': (st.f_blocks - st.f_bfree) * st.f_frsize
     }
 
-# todo: seems ok
+
 def get_total_vcpus():
     total_vcpus = 0
 
@@ -48,7 +48,7 @@ def get_total_vcpus():
 
     return total_vcpus
 
-# todo: seems ok
+
 def get_vcpus_used(containers):
     total_vcpus_used = 0
     for container in containers:
@@ -58,7 +58,7 @@ def get_vcpus_used(containers):
 
     return total_vcpus_used
 
-# todo: seems ok
+
 def get_memory_usage():
     with open('/proc/meminfo') as f:
         m = f.read().split()
@@ -75,14 +75,7 @@ def get_memory_usage():
         'used': (total - avail) * 1024
     }
 
-# todo: seems ok
+
 def get_mounts():
     with open('/proc/mounts') as f:
         return f.readlines()
-
-# todo: seems ok (can remove?)
-def get_cgroup_devices_path():
-    for ln in get_mounts():
-        fields = ln.split(' ')
-        if fields[2] == 'cgroup' and 'devices' in fields[3].split(','):
-            return fields[1]

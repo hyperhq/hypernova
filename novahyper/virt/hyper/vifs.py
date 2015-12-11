@@ -169,7 +169,7 @@ class HyperGenericVIFDriver(object):
         # the bridge.
         pass
 
-    # todo: remove? - no! do!
+    # todo: not compatible with Hyper ATM
     def attach(self, instance, vif, pod_id):
         vif_type = vif['type']
         if_remote_name = 'ns%s' % vif['id'][:11]

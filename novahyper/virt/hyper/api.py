@@ -85,7 +85,6 @@ class HyperClient(object):
     # todo: get image info from image name
     def inspect_image(self, image):
         return image
-        #return {}
 
     def start(self, pod_id, binds=None, dns=None, privileged=False):
         return self._result(self._post(self._url('/pod/start?podId={0}'.format(pod_id))),json=True)
@@ -105,12 +104,6 @@ class HyperClient(object):
     def unpause(self, pod_id):
         return self.start(pod_id)
 
-    ## ?
-    #todo: check
-    #def create_host_config(self, ?**args):
-    #    return {}
-
-    #todo: clean
     def create_pod(self, image_name, name, cpu_shares, command, sshdir, network_info, instance, host_config):
         obj = {
             "id": name,
@@ -141,15 +134,15 @@ class HyperClient(object):
                     "readOnly": True
                 })
         if network_info:
+            obj["interfaces"] = []
             for vif in network_info:
-                obj["interface"] = {
+                obj["interfaces"].append({
                     "bridge": vif['network']['bridge'],
-                    "ifname": vif['network']['bridge'],
+                    "ifname": vif['network']['if_local_name'],
                     "mac": vif["network"].get("mac_addr"),
                     "ip": network.find_fixed_ip(instance, vif['network']),
                     "gateway": network.find_gateway(instance, vif['network'])
-                }
-                break
+                })
 
         result = self._result(self._post_json(url=self._url('/pod/create'),
                                               data=obj),

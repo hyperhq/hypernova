@@ -60,7 +60,6 @@ CONF = cfg.CONF
 CONF.import_opt('my_ip', 'nova.netconf')
 CONF.import_opt('instances_path', 'nova.compute.manager')
 
-# URGENT - todo: network must be managed by nova
 # todo: networking: manage attach vif for attaching floating ip
 # todo: clean inline comments
 # todo: replace startup command in api.create_pod (convert to list)
@@ -69,7 +68,6 @@ CONF.import_opt('instances_path', 'nova.compute.manager')
 # todo: images should be passed from glance to Hyper. Need a feature like docker save to implement this
 # todo: anyway, hyper needs a docker save like feature to perform snapshots
 # todo: some host-related infos maybe be innacurate (but seems ok)
-# todo: handle multiple network interfaces
 # todo: see inline todos
 
 hyper_opts = [
@@ -120,8 +118,7 @@ class HyperDriver(driver.ComputeDriver):
     """Hyper hypervisor driver."""
 
     def __init__(self, virtapi):
-        #driver.ComputeDriver.__init__(self, virtapi)
-        super(HyperDriver, self).__init__(virtapi) #todo: check
+        super(HyperDriver, self).__init__(virtapi)
         self._hyper = None
         vif_class = importutils.import_class(CONF.hyper.vif_driver)
         self.vif_driver = vif_class()
@@ -218,7 +215,7 @@ class HyperDriver(driver.ComputeDriver):
                 res.append(info['Config'].get('Hostname'))
         return res
 
-    # attach floating interface?
+    # todo: attach floating interface?
     def attach_interface(self, instance, image_meta, vif):
         """Attach an interface to the pod-vm."""
         self.vif_driver.plug(instance, vif)
@@ -235,10 +232,9 @@ class HyperDriver(driver.ComputeDriver):
         """Plug VIFs into networks."""
         for vif in network_info:
             self.vif_driver.plug(instance, vif)
-            break # todo: only attach the first interface, as hyper only handle one interface
         self._start_firewall(instance, network_info)
 
-    #todo: difference between attach and plug? - maybe no need to attach
+    #todo: probably delete
     def _attach_vifs(self, instance, network_info):
         """Plug VIFs into pod."""
         if not network_info:
@@ -246,14 +242,13 @@ class HyperDriver(driver.ComputeDriver):
         pod_id = self.hyper.find_pod_id_by_uuid(instance["uuid"])
         if not pod_id:
             return
-        # todo: link/create ifaces - check: already done?
         for vif in network_info:
             self.vif_driver.attach(instance, vif, pod_id)
 
     def unplug_vifs(self, instance, network_info):
         """Unplug VIFs from networks."""
         for vif in network_info:
-            self.vif_driver.unplug(instance, vif) #todo: try to unplug all, even if plug only one?
+            self.vif_driver.unplug(instance, vif)
         self._stop_firewall(instance, network_info)
 
     def _encode_utf8(self, value):
@@ -266,7 +261,6 @@ class HyperDriver(driver.ComputeDriver):
         running = pod['State'].get('Running')
         mem = pod['Config'].get('Memory', 0)
 
-        # todo: check 1024 multiplier - seems OK
         num_cpu = pod['Config'].get('CpuShares', 0)
 
         info = hardware.InstanceInfo(
@@ -302,7 +296,6 @@ class HyperDriver(driver.ComputeDriver):
         memory = hostinfo.get_memory_usage()
         disk = hostinfo.get_disk_usage()
         cur_hv_type = hv_type.HYPER
-        # todo: check this - seems OK
         stats = {
             'vcpus': hostinfo.get_total_vcpus(),
             'vcpus_used': hostinfo.get_vcpus_used(self.list_instances(True)),
@@ -414,7 +407,7 @@ class HyperDriver(driver.ComputeDriver):
             return
         try:
             self.plug_vifs(instance, network_info)
-            #self._attach_vifs(instance, network_info)
+            #self._attach_vifs(instance, network_info) #todo?
         except Exception as e:
             LOG.warning(_('Cannot setup network: %s'),
                         e, instance=instance, exc_info=True)
@@ -458,6 +451,8 @@ class HyperDriver(driver.ComputeDriver):
         if network_info:
             for vif in network_info:
                 vif["network"]["mac_addr"] = self.vif_driver.fe_random_mac()
+                vif["network"]["if_local_name"] = 'tap%s' % vif['id'][:11]
+                vif["network"]["if_remote_name"] = 'ns%s' % vif['id'][:11]
 
         pod_id = self._create_pod(instance, image_name, network_info, args).get("ID")
         if not pod_id:
@@ -509,11 +504,6 @@ class HyperDriver(driver.ComputeDriver):
         try:
             self.hyper.stop(pod_id, max(timeout, 5))
         except errors.APIError as e:
-            # errors are different in hyper anyway - delete
-            #if 'Unpause the pod before stopping' not in e.explanation:
-            #    LOG.warning(_('Cannot stop container: %s'),
-            #                e, instance=instance, exc_info=True)
-            #    raise
             self.hyper.unpause(pod_id)
             self.hyper.stop(pod_id, timeout)
 
@@ -537,7 +527,7 @@ class HyperDriver(driver.ComputeDriver):
             self.unplug_vifs(instance, network_info)
             return
         self.hyper.remove_pod(pod_id, force=True)
-        #network.teardown_network(pod_id) #todo: keep?
+        network.teardown_network(pod_id, network_info)
         self.unplug_vifs(instance, network_info)
         if CONF.hyper.inject_key:
             self._cleanup_key(instance)
@@ -549,7 +539,7 @@ class HyperDriver(driver.ComputeDriver):
             return
         self._stop(pod_id, instance)
         try:
-            #network.teardown_network(pod_id) #todo: keep?
+            network.teardown_network(pod_id, network_info)
             if network_info:
                 self.unplug_vifs(instance, network_info)
         except Exception as e:
@@ -564,7 +554,7 @@ class HyperDriver(driver.ComputeDriver):
         try:
             if network_info:
                 self.plug_vifs(instance, network_info)
-                #self._attach_vifs(instance, network_info) #todo: remove? - nope
+                #self._attach_vifs(instance, network_info) #todo: remove?
         except Exception as e:
             LOG.warning(_('Cannot setup network on reboot: {0}'), e,
                         exc_info=True)
@@ -582,7 +572,7 @@ class HyperDriver(driver.ComputeDriver):
             return
         try:
             self.plug_vifs(instance, network_info)
-            #self._attach_vifs(instance, network_info) #todo: keep?
+            #self._attach_vifs(instance, network_info) #todo: remove?
         except Exception as e:
             LOG.debug(_('Cannot setup network: %s'),
                       e, instance=instance, exc_info=True)
@@ -705,7 +695,6 @@ class HyperDriver(driver.ComputeDriver):
         command = args.pop('command', None)
         sshdir = args.pop('sshdir', None)
         host_config = args
-        #host_config = self.hyper.create_host_config(**args) #todo: check - seems ok
         return self.hyper.create_pod(image_name,
                                      name=self._encode_utf8(name),
                                      cpu_shares=cpu_shares,
