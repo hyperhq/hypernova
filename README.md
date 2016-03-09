@@ -1,2 +1,2 @@
-# nova-hyper
+# hypernova
 A Hyper driver for OpenStack Nova
